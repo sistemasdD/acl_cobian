@@ -15,4 +15,4 @@ setfacl -m mask::rwx /var/lib/psa/dumps/domains/**
 setfacl -m default:mask::rwx /var/lib/psa/dumps/domains/**/
 (( _globstarStatus )) && shopt -u globstar
 
-echo "Done";
+echo "Done"
