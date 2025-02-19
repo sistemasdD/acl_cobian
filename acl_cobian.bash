@@ -61,17 +61,39 @@ aclInstall ()
 
 checkUser ()
 {
-    local -- _hostname=$( hostname --long )
+    local -- _user=$1 _passwd= _hostname=$( hostname --long )
+ 
+    id -u "$_user" &> /dev/null && return 0
 
-    id -u "$1" &> /dev/null || {
+    _passwd=$( cat /dev/urandom | tr -dc 'A-Za-z0-9@#%^&*()_' | head -c 30 )
+
+    [[ -z $_passwd ]] && {
 
         printf \
-            "\n\t%s[!] User %s does not exist in %s :( %s\n\n" \
-            "$_RED" "$_hostname" "$_RESET" \
+            "\n\t%s[!] Could not generate the password for the user %s %s\n\n" \
+            "$_RED" "$_user" "$_RESET" \
             1>&2
 
         return 1
     }
+
+    useradd "$_user" &> /dev/null || {
+
+        printf \
+            "\n\t%s[!] The user %s could not be created :( %s \n\n" \
+            "$_RED" "$_user" "$_RESET" \
+            1>&2
+
+        return 1 
+    }
+
+    chpasswd <<< "${_user}:$_passwd" && {
+
+        printf \
+            "\n%s[+] %s's Password ➔  %s %s\n" \
+            "$_PINK" "$_user" "$_passwd" "$_RESET"
+
+    } || return 1
 
     return 0
 }
