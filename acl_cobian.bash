@@ -1,18 +1,181 @@
 #!/usr/bin/env bash
 
-setfacl -m u:backupdd:x /var/lib/psa/dumps/
-setfacl -m mask::x /var/lib/psa/dumps/
-setfacl -m u:backupdd:rwx /var/lib/psa/dumps/domains/
-setfacl -m default:u:backupdd:rwx /var/lib/psa/dumps/domains/
-setfacl -m mask::rwx /var/lib/psa/dumps/domains/
-setfacl -m default:mask::rwx /var/lib/psa/dumps/domains/
+[ -t 1 ] && {
 
-shopt -q globstar ; _globstarStatus=$?
-(( _globstarStatus )) && shopt -s globstar
-setfacl -m u:backupdd:rwx /var/lib/psa/dumps/domains/**
-setfacl -m default:u:backupdd:rwx /var/lib/psa/dumps/domains/**/
-setfacl -m mask::rwx /var/lib/psa/dumps/domains/**
-setfacl -m default:mask::rwx /var/lib/psa/dumps/domains/**/
-(( _globstarStatus )) && shopt -u globstar
+    _RED=$( tput setaf 1 ) 
+    _RESET=$( tput sgr0 )
+    _BLUE=$( tput setaf 159 )
+    _PINK=$( tput setaf 219 )
+}
 
-echo "Done"
+checkBash ()
+{
+    [ -z "$BASH_VERSINFO" ] && {
+
+        printf \
+            "\n\t%s[!] %s must be run using bash %s or ./%s %s\n\n" \
+            "$_RED" "${0##*/}" "${0##*/}" "${0##*/}" "$_RESET" \
+            1>&2
+
+        return 1
+    }
+
+    return 0
+}
+
+banner ()
+{
+    cat << BANNER
+    $_BLUE 
+    ██   ▄█▄    █      ▄▄▄▄▄   
+    █ █  █▀ ▀▄  █     █     ▀▄ 
+    █▄▄█ █   ▀  █   ▄  ▀▀▀▀▄   
+    █  █ █▄  ▄▀ ███▄ ▀▄▄▄▄▀    
+       █ ▀███▀      ▀          
+      █                        
+     ▀
+    $_RESET
+BANNER
+}
+
+checkDeps ()
+{
+    command -V "$1" &> /dev/null && return 0 || return 1
+}
+
+aclInstall ()
+{
+    (( $( id -u ) == 0 )) || {
+
+        printf \
+            "\n\t%s[!] It seems that this script is not running as Root %s\n\n" \
+            "$_RED" "$_RESET"
+
+        return 1
+    }
+
+    checkDeps "acl" || apt install --assume-yes -- acl &> /dev/null || return 1
+
+    return 0
+}
+
+checkUser ()
+{
+    local -- _hostname=$( hostname --long )
+
+    id -u "$1" &> /dev/null || {
+
+        printf \
+            "\n\t%s[!] User %s does not exist in %s :( %s\n\n" \
+            "$_RED" "$_hostname" "$_RESET" \
+            1>&2
+
+        return 1
+    }
+
+    return 0
+}
+
+checkPlesk ()
+{
+    local -- _hostname=$( hostname --long )
+
+    checkDeps "plesk" || {
+
+        printf \
+            "\n\t%s[!] It seems that Plesk is not installed in the %s %s\n\n" \
+            "$_RED" "$_hostname" "$_RESET" \
+            1>&2
+
+        return 1
+    }
+
+    systemctl --quiet is-active psa.service &> /dev/null || {
+
+        printf \
+            "\n\t%s[!] Psa.service related to Plesk is not running in %s... :( %s\n\n" \
+            "$_RED" "$_hostname" "$_RESET" \
+            1>&2
+
+        return 1
+    }
+
+    return 0
+}
+
+execACLs1 ()
+{
+    local -- _user=${1:-backupdd} _backupPath=${1:-/var/lib/psa/dumps} \
+             _hostname=$( hostname --long )
+
+    [[ $_user == 'backupdd' ]] || checkUser "$1" || return 1
+
+    [[ -e $_backupPath ]] || {
+
+        printf \
+            "\n\t%s[!] %s path does not exist in %s %s \n\n" \
+            "$_RED" "$_backupPath" "$_hostname" "$_RESET" \
+            1>&2
+
+        return 1
+    }
+
+    setfacl -m u:"${_user}":x "${_backupPath}"/
+    setfacl -m mask::x "${_backupPath}"/
+    setfacl -m u:"${_user}":rwx "${_backupPath}"/domains/
+    setfacl -m default:u:"${_user}":rwx "${_backupPath}"/domains/
+    setfacl -m mask::rwx "${_backupPath}"/domains/
+    setfacl -m default:mask::rwx "${_backupPath}"/domains/
+
+    return 0
+}
+
+execACLs2 ()
+{
+    local -- _user=${1:-backupdd} _backupPath=${1:-/var/lib/psa/dumps} \
+             _hostname=$( hostname --long )
+
+    [[ $_user == 'backupdd' ]] || checkUser "$1" || return 1
+
+    [[ -e $_backupPath ]] || {
+
+        printf \
+            "\n\t%s[!] %s path does not exist in %s %s \n\n" \
+            "$_RED" "$_backupPath" "$_hostname" "$_RESET" \
+            1>&2
+
+        return 1
+    }
+
+    shopt -q globstar ; _globstarStatus=$?
+    shopt -q dotglob ; _dotglobStatus=$?
+
+    (( _globstarStatus )) && shopt -s globstar
+    (( _dotglobStatus )) && shopt -s dotglob
+
+    setfacl -m u:"${_user}":rwx "${_backupPath}"/domains/**
+    setfacl -m default:u:"${_user}":rwx "${_backupPath}"/domains/**/
+    setfacl -m mask::rwx "${_backupPath}"/domains/**
+    setfacl -m default:mask::rwx "${_backupPath}"/domains/**/
+
+    (( _globstarStatus )) && shopt -u globstar
+    (( _dotglobStatus )) && shopt -u dotglob
+
+    return 0
+}
+
+main ()
+{
+    aclInstall || exit 99
+    checkUser "backupdd" || exit 99
+    checkPlesk || exit 99
+    execACLs1 && { execACLs2 || exit 99 ; } || exit 99
+
+    printf \
+        "\n%s[+] ACLs applied recursively under /var/lib/psa/ for the user backupdd :) %s\n\n" \
+        "$_PINK" "$_RESET"
+}
+
+banner
+
+main
