@@ -142,12 +142,12 @@ execACLs1 ()
         return 1
     }
 
-    setfacl -m u:"${_user}":x "${_backupPath}"/
-    setfacl -m mask::x "${_backupPath}"/
-    setfacl -m u:"${_user}":rwx "${_backupPath}"/domains/
-    setfacl -m default:u:"${_user}":rwx "${_backupPath}"/domains/
-    setfacl -m mask::rwx "${_backupPath}"/domains/
-    setfacl -m default:mask::rwx "${_backupPath}"/domains/
+    setfacl -m u:"${_user}":x "${_backupPath}"/ 2> /dev/null
+    setfacl -m mask::x "${_backupPath}"/ 2> /dev/null
+    setfacl -m u:"${_user}":rwx "${_backupPath}"/domains/ 2> /dev/null
+    setfacl -m default:u:"${_user}":rwx "${_backupPath}"/domains/ 2> /dev/null
+    setfacl -m mask::rwx "${_backupPath}"/domains/ 2> /dev/null
+    setfacl -m default:mask::rwx "${_backupPath}"/domains/ 2> /dev/null
 
     return 0
 }
@@ -175,10 +175,10 @@ execACLs2 ()
     (( _globstarStatus )) && shopt -s globstar
     (( _dotglobStatus )) && shopt -s dotglob
 
-    setfacl -m u:"${_user}":rwx "${_backupPath}"/domains/**
-    setfacl -m default:u:"${_user}":rwx "${_backupPath}"/domains/**/
-    setfacl -m mask::rwx "${_backupPath}"/domains/**
-    setfacl -m default:mask::rwx "${_backupPath}"/domains/**/
+    setfacl -m u:"${_user}":rwx "${_backupPath}"/domains/** 2> /dev/null
+    setfacl -m default:u:"${_user}":rwx "${_backupPath}"/domains/**/ 2> /dev/null
+    setfacl -m mask::rwx "${_backupPath}"/domains/** 2> /dev/null
+    setfacl -m default:mask::rwx "${_backupPath}"/domains/**/ 2> /dev/null
 
     (( _globstarStatus )) && shopt -u globstar
     (( _dotglobStatus )) && shopt -u dotglob
